@@ -1,5 +1,8 @@
 package com.tn.service.data.jdbc.api;
 
+import static java.lang.String.format;
+import static java.util.Collections.emptySet;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,6 +16,8 @@ import static org.mockito.Mockito.when;
 import static com.tn.service.data.controller.DataController.DEFAULT_PAGE_NUMBER;
 import static com.tn.service.data.controller.DataController.DEFAULT_PAGE_SIZE;
 import static com.tn.service.data.controller.DataController.FIELD_MESSAGE;
+import static com.tn.service.data.domain.Direction.ASCENDING;
+import static com.tn.service.data.domain.Direction.DESCENDING;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -20,6 +25,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -87,9 +93,26 @@ class DataApiIntegrationTest
     ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
     ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
 
-    when(dataRepository.findAll()).thenReturn(List.of(data1, data2));
+    when(dataRepository.findAll(emptySet(), ASCENDING)).thenReturn(List.of(data1, data2));
 
     ResponseEntity<ArrayNode> response = testRestTemplate.getForEntity("/", ArrayNode.class);
+
+    assertTrue(response.getStatusCode().is2xxSuccessful());
+    assertEquals(new ArrayNode(null, List.of(data1, data2)), response.getBody());
+  }
+
+  @Test
+  void shouldGetWithSort()
+  {
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
+
+    when(dataRepository.findAll(Set.of(FIELD_NAME), DESCENDING)).thenReturn(List.of(data1, data2));
+
+    ResponseEntity<ArrayNode> response = testRestTemplate.getForEntity(
+      format("/?sort=%s&direction=%s", FIELD_NAME, DESCENDING),
+      ArrayNode.class
+    );
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
     assertEquals(new ArrayNode(null, List.of(data1, data2)), response.getBody());
@@ -104,7 +127,10 @@ class DataApiIntegrationTest
     when(keyParser.parse(key.get(FIELD_ID).asText())).thenReturn(key);
     when(dataRepository.find(key)).thenReturn(Optional.of(data));
 
-    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + key.get(FIELD_ID).asText(), ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity(
+      format("/%s", key.get(FIELD_ID).asText()),
+      ObjectNode.class
+    );
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
     assertEquals(data, response.getBody());
@@ -182,7 +208,7 @@ class DataApiIntegrationTest
     ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
     String query = "name=Data 1";
 
-    when(dataRepository.findFor(query)).thenReturn(List.of(data));
+    when(dataRepository.findWhere(query, emptySet(), ASCENDING)).thenReturn(List.of(data));
 
     ResponseEntity<ArrayNode> response = testRestTemplate.getForEntity("/?q=" + query, ArrayNode.class);
 
@@ -199,7 +225,7 @@ class DataApiIntegrationTest
 
     Page<ObjectNode> page = new Page<>(List.of(data), pageNumber, 2, DEFAULT_PAGE_SIZE + 1);
 
-    when(dataRepository.findFor(query, pageNumber, DEFAULT_PAGE_SIZE)).thenReturn(page);
+    when(dataRepository.findWhere(query, pageNumber, DEFAULT_PAGE_SIZE, emptySet(), ASCENDING)).thenReturn(page);
 
     ResponseEntity<Page<ObjectNode>> response = testRestTemplate.exchange(
       "/?q=" + query + "&pageNumber=" + pageNumber,
@@ -221,7 +247,7 @@ class DataApiIntegrationTest
 
     Page<ObjectNode> page = new Page<>(List.of(data), DEFAULT_PAGE_NUMBER, 2, pageSize + 1);
 
-    when(dataRepository.findFor(query, DEFAULT_PAGE_NUMBER, pageSize)).thenReturn(page);
+    when(dataRepository.findWhere(query, DEFAULT_PAGE_NUMBER, pageSize, emptySet(), ASCENDING)).thenReturn(page);
 
     ResponseEntity<Page<ObjectNode>> response = testRestTemplate.exchange(
       "/?q=" + query + "&pageSize=" + pageSize,
@@ -244,7 +270,7 @@ class DataApiIntegrationTest
 
     Page<ObjectNode> page = new Page<>(List.of(data), pageNumber, 2, pageSize + 1);
 
-    when(dataRepository.findFor(query, pageNumber, pageSize)).thenReturn(page);
+    when(dataRepository.findWhere(query, pageNumber, pageSize, emptySet(), ASCENDING)).thenReturn(page);
 
     ResponseEntity<Page<ObjectNode>> response = testRestTemplate.exchange(
       "/?q=" + query + "&pageNumber=" + pageNumber + "&pageSize=" + pageSize,

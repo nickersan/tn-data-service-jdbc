@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static com.tn.lang.util.function.Lambdas.unwrapException;
+import static com.tn.service.data.domain.Direction.DESCENDING;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicLong;
@@ -207,6 +209,16 @@ class JdbcDataRepositoryIntegrationTest
     }
 
     @Test
+    void shouldFindAllWithSort()
+    {
+      ObjectNode object1 = dataRepository.insert(object(1, true, 10, 11, 1.23F, 2.34, BigDecimal.valueOf(3.45), "T1"));
+      ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
+      ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
+
+      assertEquals(List.of(object3, object2, object1), dataRepository.findAll(Set.of("integerValue"), DESCENDING));
+    }
+
+    @Test
     void shouldFindAllPaginated()
     {
       ObjectNode object1 = dataRepository.insert(object(1, true, 10, 11, 1.23F, 2.34, BigDecimal.valueOf(3.45), "T1"));
@@ -215,6 +227,17 @@ class JdbcDataRepositoryIntegrationTest
 
       assertEquals(new Page<>(List.of(object1, object2), 0, 2, 3), dataRepository.findAll(0, 2));
       assertEquals(new Page<>(List.of(object3), 1, 2, 3), dataRepository.findAll(1, 2));
+    }
+
+    @Test
+    void shouldFindAllPaginatedWithSort()
+    {
+      ObjectNode object1 = dataRepository.insert(object(1, true, 10, 11, 1.23F, 2.34, BigDecimal.valueOf(3.45), "T1"));
+      ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
+      ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
+
+      assertEquals(new Page<>(List.of(object3, object2), 0, 2, 3), dataRepository.findAll(0, 2, Set.of("integerValue"), DESCENDING));
+      assertEquals(new Page<>(List.of(object1), 1, 2, 3), dataRepository.findAll(1, 2, Set.of("integerValue"), DESCENDING));
     }
 
     @Test
@@ -229,11 +252,11 @@ class JdbcDataRepositoryIntegrationTest
 
       assertEquals(
         List.of(object1, object2),
-        dataRepository.findAll(key1, key2)
+        dataRepository.findAll(Set.of(key1, key2))
       );
       assertEquals(
         List.of(object3),
-        dataRepository.findAll(key3)
+        dataRepository.findAll(Set.of(key3))
       );
     }
 
@@ -248,13 +271,13 @@ class JdbcDataRepositoryIntegrationTest
 
     @ParameterizedTest
     @MethodSource("findForObjectNodes")
-    void shouldFindFor(String query, ObjectNode objectNode, List<ObjectNode> objectNodes) throws Exception
+    void shouldFindWhere(String query, ObjectNode objectNode, List<ObjectNode> objectNodes) throws Exception
     {
       try
       {
         dataRepository.insertAll(objectNodes);
 
-        assertEquals(List.of(objectNode), dataRepository.findFor(query));
+        assertEquals(List.of(objectNode), dataRepository.findWhere(query));
       }
       catch (WrappedException e)
       {
@@ -264,13 +287,45 @@ class JdbcDataRepositoryIntegrationTest
 
     @ParameterizedTest
     @MethodSource("findForObjectNodes")
-    void shouldFindForPaginated(String query, ObjectNode objectNode, List<ObjectNode> objectNodes) throws Exception
+    void shouldFindWhereWithSort(String query, ObjectNode objectNode, List<ObjectNode> objectNodes) throws Exception
     {
       try
       {
         dataRepository.insertAll(objectNodes);
 
-        assertEquals(new Page<>(List.of(objectNode), 0, 1, 1), dataRepository.findFor(query, 0, objectNodes.size()));
+        assertEquals(List.of(objectNode).reversed(), dataRepository.findWhere(query, Set.of("integerValue"), DESCENDING));
+      }
+      catch (WrappedException e)
+      {
+        throw (Exception)unwrapException(e);
+      }
+    }
+
+    @ParameterizedTest
+    @MethodSource("findForObjectNodes")
+    void shouldFindWherePaginated(String query, ObjectNode objectNode, List<ObjectNode> objectNodes) throws Exception
+    {
+      try
+      {
+        dataRepository.insertAll(objectNodes);
+
+        assertEquals(new Page<>(List.of(objectNode), 0, 1, 1), dataRepository.findWhere(query, 0, objectNodes.size()));
+      }
+      catch (WrappedException e)
+      {
+        throw (Exception)unwrapException(e);
+      }
+    }
+
+    @ParameterizedTest
+    @MethodSource("findForObjectNodes")
+    void shouldFindWherePaginatedWithSort(String query, ObjectNode objectNode, List<ObjectNode> objectNodes) throws Exception
+    {
+      try
+      {
+        dataRepository.insertAll(objectNodes);
+
+        assertEquals(new Page<>(List.of(objectNode).reversed(), 0, 1, 1), dataRepository.findWhere(query, 0, objectNodes.size(), Set.of("integerValue"), DESCENDING));
       }
       catch (WrappedException e)
       {

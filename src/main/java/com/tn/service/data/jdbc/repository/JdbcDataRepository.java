@@ -5,13 +5,14 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toSet;
 import static java.util.stream.StreamSupport.stream;
 
 import static com.google.common.collect.Lists.partition;
 
+import static com.tn.lang.Iterables.asList;
 import static com.tn.lang.Iterables.isEmpty;
 import static com.tn.lang.Iterables.size;
-import static com.tn.lang.Iterables.toList;
 import static com.tn.lang.Strings.repeat;
 import static com.tn.lang.util.function.Lambdas.unwrapException;
 import static com.tn.lang.util.function.Lambdas.wrapConsumer;
@@ -40,12 +41,14 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.tn.lang.Iterables;
 import com.tn.lang.sql.PreparedStatements;
 import com.tn.lang.util.Page;
 import com.tn.lang.util.function.ConsumerWithThrows;
 import com.tn.lang.util.function.WrappedException;
 import com.tn.query.QueryParser;
 import com.tn.query.jdbc.JdbcPredicate;
+import com.tn.service.data.domain.Direction;
 import com.tn.service.data.jdbc.domain.Field;
 import com.tn.service.data.repository.DataRepository;
 import com.tn.service.data.repository.DeleteException;
@@ -68,7 +71,8 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   private static final String UPDATE = "UPDATE %s.%s SET %s WHERE %s";
   private static final String DELETE = "DELETE FROM %s.%s";
   private static final String WHERE = "%s WHERE %s";
-  private static final String ORDER_BY = "%s ORDER BY %s";
+  private static final String ORDER_BY = "%s ORDER BY %s ASC";
+  private static final String ORDER_BY_DESCENDING = "%s ORDER BY %s DESC";
   private static final String OFFSET = "%s OFFSET %d ROWS FETCH NEXT %d ROWS ONLY";
 
   private final ExecutorService queryExecutor;
@@ -108,7 +112,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     this.keyFields = fields.stream().filter(field -> field.column().key()).toList();
     this.mutableFields = fields.stream().filter(field -> !field.column().key()).toList();
 
-    this.keyPredicate = keyFields.stream().map(field -> String.format(FIELD_PLACEHOLDER, field.column().name())).collect(joining(LOGICAL_AND));
+    this.keyPredicate = keyFields.stream().map(field -> format(FIELD_PLACEHOLDER, field.column().name())).collect(joining(LOGICAL_AND));
 
     this.selectSql = selectSql(schema, table, fields);
     this.countSql = countSql(schema, table);
@@ -140,12 +144,11 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public Collection<ObjectNode> findAll() throws FindException
+  public Collection<ObjectNode> findAll(Iterable<String> sort, Direction direction) throws FindException
   {
     try
     {
-      //noinspection SqlSourceToSinkFlow
-      return jdbcTemplate.query(orderByKeyFields(selectSql), this::object);
+      return jdbcTemplate.query(orderBy(selectSql, sort, direction), this::object);
     }
     catch (DataAccessException e)
     {
@@ -154,13 +157,13 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public Page<ObjectNode> findAll(int pageNumber, int pageSize) throws FindException
+  public Page<ObjectNode> findAll(int pageNumber, int pageSize, Iterable<String> sort, Direction direction) throws FindException
   {
     try
     {
       Future<Collection<ObjectNode>> objectsFuture = queryExecutor.submit(
         () -> jdbcTemplate.query(
-          paginated(orderByKeyFields(selectSql), pageNumber, pageSize),
+          paginated(orderBy(selectSql, sort, direction), pageNumber, pageSize),
           this::object
         )
       );
@@ -192,9 +195,8 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     try
     {
       AtomicInteger parameterIndex = parameterIndex();
-      //noinspection SqlSourceToSinkFlow
       return jdbcTemplate.query(
-        orderByKeyFields(WHERE.formatted(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys)))),
+        WHERE.formatted(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
         preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
         this::object
       );
@@ -212,7 +214,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public Collection<ObjectNode> findFor(String query) throws FindException
+  public Collection<ObjectNode> findWhere(String query, Iterable<String> sort, Direction direction) throws FindException
   {
     try
     {
@@ -220,7 +222,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
 
       //noinspection SqlSourceToSinkFlow
       return jdbcTemplate.query(
-        orderByKeyFields(WHERE.formatted(selectSql, predicate.toSql())),
+        orderBy(WHERE.formatted(selectSql, predicate.toSql()), sort, direction),
         predicate::setValues,
         this::object
       );
@@ -232,7 +234,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public Page<ObjectNode> findFor(String query, int pageNumber, int pageSize) throws FindException
+  public Page<ObjectNode> findWhere(String query, int pageNumber, int pageSize, Iterable<String> sort, Direction direction) throws FindException
   {
     try
     {
@@ -240,7 +242,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
 
       Future<Collection<ObjectNode>> objectsFuture = queryExecutor.submit(
         () -> jdbcTemplate.query(
-          paginated(orderByKeyFields(WHERE.formatted(selectSql, predicate.toSql())), pageNumber, pageSize),
+          paginated(orderBy(WHERE.formatted(selectSql, predicate.toSql()), sort, direction), pageNumber, pageSize),
           predicate::setValues,
           this::object
         )
@@ -303,7 +305,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   public Collection<ObjectNode> insertAll(Iterable<ObjectNode> objects) throws InsertException
   {
     if (isEmpty(objects)) return emptyList();
-    if (!(objects instanceof List)) return insertAll(toList(objects));
+    if (!(objects instanceof List)) return insertAll(asList(objects));
 
     try
     {
@@ -564,7 +566,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
       UPDATE,
       schema,
       table,
-      updatableFields.stream().map(field -> String.format(FIELD_PLACEHOLDER, field.column().name())).collect(joining(COLUMN_SEPARATOR)),
+      updatableFields.stream().map(field -> format(FIELD_PLACEHOLDER, field.column().name())).collect(joining(COLUMN_SEPARATOR)),
       keyPredicate
     );
   }
@@ -578,9 +580,20 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     );
   }
 
-  private String orderByKeyFields(String sql)
+  private String orderBy(String sql, Iterable<String> sort, Direction direction)
   {
-    return format(ORDER_BY, sql, keyFields.stream().map(field -> field.column().name()).collect(joining(COLUMN_SEPARATOR)));
+    return format(
+      direction.isDescending() ? ORDER_BY_DESCENDING : ORDER_BY,
+      sql,
+      sortFields(Iterables.asSet(sort)).stream().map(field -> field.column().name()).collect(joining(COLUMN_SEPARATOR))
+    );
+  }
+
+  private Collection<Field> sortFields(Collection<String> fieldNames)
+  {
+    return fieldNames.isEmpty()
+      ? keyFields
+      : fields.stream().filter(field -> fieldNames.contains(field.name())).collect(toSet());
   }
 
   private String paginated(String sql, int pageNumber, int pageSize)
