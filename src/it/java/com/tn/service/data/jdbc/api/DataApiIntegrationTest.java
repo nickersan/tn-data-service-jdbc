@@ -223,7 +223,7 @@ class DataApiIntegrationTest
     String query = "name=Data 1";
     int pageNumber = 1;
 
-    Page<ObjectNode> page = new Page<>(List.of(data), pageNumber, 2, DEFAULT_PAGE_SIZE + 1);
+    Page<ObjectNode> page = new Page<>(List.of(data), pageNumber, DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZE + 1, 2);
 
     when(dataRepository.findWhere(query, pageNumber, DEFAULT_PAGE_SIZE, emptySet(), ASCENDING)).thenReturn(page);
 
@@ -245,7 +245,7 @@ class DataApiIntegrationTest
     String query = "name=Data 1";
     int pageSize = 10;
 
-    Page<ObjectNode> page = new Page<>(List.of(data), DEFAULT_PAGE_NUMBER, 2, pageSize + 1);
+    Page<ObjectNode> page = new Page<>(List.of(data), DEFAULT_PAGE_NUMBER, pageSize, pageSize + 1, 2);
 
     when(dataRepository.findWhere(query, DEFAULT_PAGE_NUMBER, pageSize, emptySet(), ASCENDING)).thenReturn(page);
 
@@ -268,7 +268,7 @@ class DataApiIntegrationTest
     int pageNumber = 1;
     int pageSize = 10;
 
-    Page<ObjectNode> page = new Page<>(List.of(data), pageNumber, 2, pageSize + 1);
+    Page<ObjectNode> page = new Page<>(List.of(data), pageNumber, pageSize, pageSize + 1, 2);
 
     when(dataRepository.findWhere(query, pageNumber, pageSize, emptySet(), ASCENDING)).thenReturn(page);
 

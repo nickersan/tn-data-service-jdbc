@@ -173,8 +173,9 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
       return new Page<>(
         objectsFuture.get(),
         pageNumber,
-        ceilDiv(count, pageSize),
-        count
+        pageSize,
+        count,
+        ceilDiv(count, pageSize)
       );
     }
     catch (ExecutionException e)
@@ -253,8 +254,9 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
       return new Page<>(
         objectsFuture.get(),
         pageNumber,
-        ceilDiv(count, pageSize),
-        count
+        pageSize,
+        count,
+        ceilDiv(count, pageSize)
       );
     }
     catch (ExecutionException e)

@@ -225,8 +225,8 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
       ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
 
-      assertEquals(new Page<>(List.of(object1, object2), 0, 2, 3), dataRepository.findAll(0, 2));
-      assertEquals(new Page<>(List.of(object3), 1, 2, 3), dataRepository.findAll(1, 2));
+      assertEquals(new Page<>(List.of(object1, object2), 0, 2, 3, 2), dataRepository.findAll(0, 2));
+      assertEquals(new Page<>(List.of(object3), 1, 2, 3, 2), dataRepository.findAll(1, 2));
     }
 
     @Test
@@ -236,8 +236,8 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
       ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
 
-      assertEquals(new Page<>(List.of(object3, object2), 0, 2, 3), dataRepository.findAll(0, 2, Set.of("integerValue"), DESCENDING));
-      assertEquals(new Page<>(List.of(object1), 1, 2, 3), dataRepository.findAll(1, 2, Set.of("integerValue"), DESCENDING));
+      assertEquals(new Page<>(List.of(object3, object2), 0, 2, 3, 2), dataRepository.findAll(0, 2, Set.of("integerValue"), DESCENDING));
+      assertEquals(new Page<>(List.of(object1), 1, 2, 3, 2), dataRepository.findAll(1, 2, Set.of("integerValue"), DESCENDING));
     }
 
     @Test
@@ -309,7 +309,13 @@ class JdbcDataRepositoryIntegrationTest
       {
         dataRepository.insertAll(objectNodes);
 
-        assertEquals(new Page<>(List.of(objectNode), 0, 1, 1), dataRepository.findWhere(query, 0, objectNodes.size()));
+        int pageNumber = 0;
+        int pageSize = objectNodes.size();
+
+        assertEquals(
+          new Page<>(List.of(objectNode), pageNumber, pageSize, 1, 1),
+          dataRepository.findWhere(query, pageNumber, pageSize)
+        );
       }
       catch (WrappedException e)
       {
@@ -325,7 +331,13 @@ class JdbcDataRepositoryIntegrationTest
       {
         dataRepository.insertAll(objectNodes);
 
-        assertEquals(new Page<>(List.of(objectNode).reversed(), 0, 1, 1), dataRepository.findWhere(query, 0, objectNodes.size(), Set.of("integerValue"), DESCENDING));
+        int pageNumber = 0;
+        int pageSize = objectNodes.size();
+
+        assertEquals(
+          new Page<>(List.of(objectNode).reversed(), pageNumber, pageSize, 1, 1),
+          dataRepository.findWhere(query, pageNumber, pageSize, Set.of("integerValue"), DESCENDING)
+        );
       }
       catch (WrappedException e)
       {
