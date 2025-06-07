@@ -14,6 +14,7 @@
     <version>0.0.01-SNAPSHOT</version>
   </parent>
 
+  <groupId>com.tn.service.data</groupId>
   <artifactId>tn-data-service-jdbc</artifactId>
   <version>0.0.01-SNAPSHOT</version>
 
@@ -22,7 +23,7 @@
   <dependencies>
 
     <dependency>
-      <groupId>com.tn</groupId>
+      <groupId>com.tn.service.data</groupId>
       <artifactId>tn-data-service</artifactId>
       <version>0.0.01-SNAPSHOT</version>
     </dependency>
@@ -34,30 +35,20 @@
     </dependency>
 
     <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <scope>runtime</scope>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson-databind</artifactId>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
     </dependency>
 
     <!-- fixes vulnerability introduced transitively by spring-cloud-starter-contract-verifier -->
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-core</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
     </dependency>
 
     <dependency>
