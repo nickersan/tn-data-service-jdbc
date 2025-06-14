@@ -148,7 +148,7 @@ class DataApiIntegrationTest
 
     when(identityParser.parse(id1.get(FIELD_ID).asText())).thenReturn(id1);
     when(identityParser.parse(id2.get(FIELD_ID).asText())).thenReturn(id2);
-    when(dataRepository.findAll(Set.of(id1, id2), emptySet(), ASCENDING)).thenReturn(List.of(data1, data2));
+    when(dataRepository.findAll(Set.of(id1, id2))).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
       .queryParam(FIELD_ID, List.of(id1.get(FIELD_ID).asText(), id2.get(FIELD_ID).asText()))
@@ -191,7 +191,7 @@ class DataApiIntegrationTest
 
     when(identityParser.parse(encodedId1)).thenReturn(id1);
     when(identityParser.parse(encodedId2)).thenReturn(id2);
-    when(dataRepository.findAll(Set.of(id1, id2), emptySet(), ASCENDING)).thenReturn(List.of(data1, data2));
+    when(dataRepository.findAll(Set.of(id1, id2))).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
       .queryParam("id", List.of(encodedId1, encodedId2))
@@ -305,7 +305,7 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Identity parameters can only be used in isolation from other non-sort parameters", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Identity parameters can only be used in isolation from other parameters", response.getBody().get(FIELD_MESSAGE).asText());
   }
 
   @ParameterizedTest
@@ -316,7 +316,7 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Identity parameters can only be used in isolation from other non-sort parameters", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Identity parameters can only be used in isolation from other parameters", response.getBody().get(FIELD_MESSAGE).asText());
   }
 
   @Test

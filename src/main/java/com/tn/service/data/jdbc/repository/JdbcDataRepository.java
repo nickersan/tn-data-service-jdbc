@@ -157,13 +157,13 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public Collection<ObjectNode> findAll(Iterable<ObjectNode> keys, Collection<String> sort, Direction direction) throws FindException
+  public Collection<ObjectNode> findAll(Iterable<ObjectNode> keys) throws FindException
   {
     try
     {
       AtomicInteger parameterIndex = parameterIndex();
       return jdbcTemplate.query(
-        orderBy(where(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))), sort, direction),
+        where(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
         preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
         this::object
       );
@@ -436,31 +436,6 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
       Throwable unwrapped = unwrapException(e);
       if (unwrapped instanceof RuntimeException) throw (RuntimeException)unwrapped;
       else throw new DeleteException(unwrapped);
-    }
-  }
-
-  private Collection<ObjectNode> findAll(Iterable<ObjectNode> keys) throws FindException
-  {
-    if (isEmpty(keys)) return emptyList();
-
-    try
-    {
-      AtomicInteger parameterIndex = parameterIndex();
-      return jdbcTemplate.query(
-        where(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
-        preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
-        this::object
-      );
-    }
-    catch (DataAccessException e)
-    {
-      throw new FindException(e.getCause());
-    }
-    catch (WrappedException e)
-    {
-      Throwable unwrapped = unwrapException(e);
-      if (unwrapped instanceof RuntimeException) throw (RuntimeException)unwrapped;
-      else throw new FindException(unwrapped);
     }
   }
 
