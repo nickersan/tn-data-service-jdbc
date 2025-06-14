@@ -189,32 +189,6 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public Collection<ObjectNode> findAll(Iterable<ObjectNode> keys) throws FindException
-  {
-    if (isEmpty(keys)) return emptyList();
-
-    try
-    {
-      AtomicInteger parameterIndex = parameterIndex();
-      return jdbcTemplate.query(
-        WHERE.formatted(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
-        preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
-        this::object
-      );
-    }
-    catch (DataAccessException e)
-    {
-      throw new FindException(e.getCause());
-    }
-    catch (WrappedException e)
-    {
-      Throwable unwrapped = unwrapException(e);
-      if (unwrapped instanceof RuntimeException) throw (RuntimeException)unwrapped;
-      else throw new FindException(unwrapped);
-    }
-  }
-
-  @Override
   public Collection<ObjectNode> findWhere(String query, Iterable<String> sort, Direction direction) throws FindException
   {
     try
@@ -420,6 +394,31 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     catch (DataAccessException e)
     {
       throw new DeleteException(e.getCause());
+    }
+    catch (WrappedException e)
+    {
+      Throwable unwrapped = unwrapException(e);
+      if (unwrapped instanceof RuntimeException) throw (RuntimeException)unwrapped;
+      else throw new FindException(unwrapped);
+    }
+  }
+
+  private Collection<ObjectNode> findAll(Iterable<ObjectNode> keys) throws FindException
+  {
+    if (isEmpty(keys)) return emptyList();
+
+    try
+    {
+      AtomicInteger parameterIndex = parameterIndex();
+      return jdbcTemplate.query(
+        WHERE.formatted(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
+        preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
+        this::object
+      );
+    }
+    catch (DataAccessException e)
+    {
+      throw new FindException(e.getCause());
     }
     catch (WrappedException e)
     {

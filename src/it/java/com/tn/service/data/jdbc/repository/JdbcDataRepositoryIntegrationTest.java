@@ -87,14 +87,6 @@ class JdbcDataRepositoryIntegrationTest
     }
   }
 
-  private static ObjectNode key(int id)
-  {
-    ObjectNode key = new ObjectNode(null);
-    key.set(FIELD_ID, IntNode.valueOf(id));
-
-    return key;
-  }
-
   private static ObjectNode object(
     int id,
     Boolean booleanValue,
@@ -238,35 +230,6 @@ class JdbcDataRepositoryIntegrationTest
 
       assertEquals(new Page<>(List.of(object3, object2), 0, 2, 3, 2), dataRepository.findAll(0, 2, Set.of("integerValue"), DESCENDING));
       assertEquals(new Page<>(List.of(object1), 1, 2, 3, 2), dataRepository.findAll(1, 2, Set.of("integerValue"), DESCENDING));
-    }
-
-    @Test
-    void shouldFindAllWithKeys()
-    {
-      ObjectNode key1 = key(1);
-      ObjectNode object1 = dataRepository.insert(object(1, true, 10, 11, 1.23F, 2.34, BigDecimal.valueOf(3.45), "T1"));
-      ObjectNode key2 = key(2);
-      ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
-      ObjectNode key3 = key(3);
-      ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
-
-      assertEquals(
-        List.of(object1, object2),
-        dataRepository.findAll(Set.of(key1, key2))
-      );
-      assertEquals(
-        List.of(object3),
-        dataRepository.findAll(Set.of(key3))
-      );
-    }
-
-    @Test
-    void shouldNotFindAllWithKeys()
-    {
-      ObjectNode key = new ObjectNode(null);
-      key.set(FIELD_ID, IntNode.valueOf(1));
-
-      assertTrue(dataRepository.findAll(key).isEmpty());
     }
 
     @ParameterizedTest
@@ -612,7 +575,7 @@ class JdbcDataRepositoryIntegrationTest
       mutated3.setAll(mutation3);
 
       assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.updateAll(mutation1, mutation2, mutation3));
-      assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.findAll(mutation1, mutation2, mutation3));
+      assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.findAll());
     }
 
     private static Object mutation(ObjectNode object, Map<Field, Object> values)

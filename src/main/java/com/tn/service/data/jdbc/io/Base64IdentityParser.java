@@ -10,24 +10,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import com.tn.service.data.io.InvalidKeyException;
-import com.tn.service.data.io.KeyParseException;
-import com.tn.service.data.io.KeyParser;
 import com.tn.service.data.jdbc.domain.Field;
+import com.tn.service.data.parameter.IdentityParser;
 
-public class Base64KeyParser implements KeyParser<ObjectNode>
+public class Base64IdentityParser implements IdentityParser<ObjectNode>
 {
   private final Collection<Field> keyFields;
   private final ObjectMapper objectMapper;
 
-  public Base64KeyParser(Collection<Field> keyFields, ObjectMapper objectMapper)
+  public Base64IdentityParser(Collection<Field> keyFields, ObjectMapper objectMapper)
   {
     this.keyFields = keyFields;
     this.objectMapper = objectMapper;
   }
 
   @Override
-  public ObjectNode parse(String key) throws InvalidKeyException
+  public ObjectNode parse(String key) throws InvalidIdException
   {
     return keyFields.size() > 1 ? parseAsObject(key) : parseAsValue(key);
   }
@@ -40,7 +38,7 @@ public class Base64KeyParser implements KeyParser<ObjectNode>
     }
     catch (IOException e)
     {
-      throw new InvalidKeyException("Invalid key: " + key, e);
+      throw new InvalidIdException("Invalid key: " + key, e);
     }
   }
 
@@ -50,15 +48,15 @@ public class Base64KeyParser implements KeyParser<ObjectNode>
     {
       if (keyFields.size() > 1)
       {
-        throw new InvalidKeyException("Invalid key: " + key);
+        throw new InvalidIdException("Invalid key: " + key);
       }
-      Field keyField = keyFields.stream().findFirst().orElseThrow(() -> new InvalidKeyException("Invalid key: " + key));
+      Field keyField = keyFields.stream().findFirst().orElseThrow(() -> new InvalidIdException("Invalid key: " + key));
 
       return objectNode(keyField, key);
     }
     catch (NumberFormatException | DateTimeParseException e)
     {
-      throw new KeyParseException("Cannot parse key: " + key, e);
+      throw new IdParseException("Cannot parse key: " + key, e);
     }
   }
 
@@ -77,7 +75,7 @@ public class Base64KeyParser implements KeyParser<ObjectNode>
         JsonNode value = key.get(field.name());
         if (value == null)
         {
-          throw new InvalidKeyException("Invalid key: " + key + " - field: " + field.name());
+          throw new InvalidIdException("Invalid key: " + key + " - field: " + field.name());
         }
 
         try
@@ -86,7 +84,7 @@ public class Base64KeyParser implements KeyParser<ObjectNode>
         }
         catch (IllegalArgumentException e)
         {
-          throw new InvalidKeyException("Invalid key: " + key + " - field: " + field.name(), e);
+          throw new InvalidIdException("Invalid key: " + key + " - field: " + field.name(), e);
         }
       }
     };

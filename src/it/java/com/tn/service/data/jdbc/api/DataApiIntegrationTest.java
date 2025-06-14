@@ -6,6 +6,7 @@ import static java.util.Collections.emptySet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
@@ -53,7 +54,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.tn.lang.util.Page;
-import com.tn.service.data.io.KeyParser;
+import com.tn.service.data.io.DefaultJsonCodec;
+import com.tn.service.data.io.JsonCodec;
+import com.tn.service.data.parameter.IdentityParser;
+import com.tn.service.data.parameter.QueryBuilder;
 import com.tn.service.data.repository.DataRepository;
 import com.tn.service.data.repository.DeleteException;
 import com.tn.service.data.repository.InsertException;
@@ -61,8 +65,7 @@ import com.tn.service.data.repository.UpdateException;
 
 @SpringBootTest(
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-  classes = DataApiIntegrationTest.TestConfiguration.class,
-  properties = "tn.data.value-class=com.fasterxml.jackson.databind.node.ObjectNode"
+  classes = DataApiIntegrationTest.TestConfiguration.class
 )
 @SuppressWarnings("SpringBootApplicationProperties")
 @EnableAutoConfiguration
@@ -82,7 +85,7 @@ class DataApiIntegrationTest
   DataRepository<ObjectNode, ObjectNode> dataRepository;
 
   @Autowired
-  KeyParser<ObjectNode> keyParser;
+  IdentityParser<ObjectNode> identityParser;
 
   @Autowired
   ObjectMapper objectMapper;
@@ -110,7 +113,7 @@ class DataApiIntegrationTest
     when(dataRepository.findAll(Set.of(FIELD_NAME), DESCENDING)).thenReturn(List.of(data1, data2));
 
     ResponseEntity<ArrayNode> response = testRestTemplate.getForEntity(
-      format("/?sort=%s&direction=%s", FIELD_NAME, DESCENDING),
+      format("/?$sort=%s&$direction=%s", FIELD_NAME, DESCENDING),
       ArrayNode.class
     );
 
@@ -119,16 +122,16 @@ class DataApiIntegrationTest
   }
 
   @Test
-  void shouldGetWithKey()
+  void shouldGetWithId()
   {
-    ObjectNode key = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
     ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
 
-    when(keyParser.parse(key.get(FIELD_ID).asText())).thenReturn(key);
-    when(dataRepository.find(key)).thenReturn(Optional.of(data));
+    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(dataRepository.find(id)).thenReturn(Optional.of(data));
 
     ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity(
-      format("/%s", key.get(FIELD_ID).asText()),
+      format("/%s", id.get(FIELD_ID).asText()),
       ObjectNode.class
     );
 
@@ -137,19 +140,21 @@ class DataApiIntegrationTest
   }
 
   @Test
-  void shouldGetWithSimpleKeys()
+  void shouldGetWithSimpleIds()
   {
-    ObjectNode key1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
-    ObjectNode key2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
+    IntNode id1 = IntNode.valueOf(1);
+    IntNode id2 = IntNode.valueOf(2);
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, id1, FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, id2, FIELD_NAME, TextNode.valueOf("Data 2")));
 
-    when(keyParser.parse(key1.get(FIELD_ID).asText())).thenReturn(key1);
-    when(keyParser.parse(key2.get(FIELD_ID).asText())).thenReturn(key2);
-    when(dataRepository.findAll(List.of(key1, key2))).thenReturn(List.of(data1, data2));
+    when(identityParser.parse(id1.asText())).thenReturn(objectNode(Map.of(FIELD_ID, id1)));
+    when(identityParser.parse(id2.asText())).thenReturn(objectNode(Map.of(FIELD_ID, id2)));
+
+    when(dataRepository.findWhere(format("(%1$s=%2$s||%1$s=%3$s)", FIELD_ID, id1.asText(), id2.asText()), emptySet(), ASCENDING))
+      .thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam("key", List.of(key1.get(FIELD_ID).asText(), key2.get(FIELD_ID).asText()))
+      .queryParam(FIELD_ID, List.of(id1.asText(), id2.asText()))
       .encode()
       .toUriString();
 
@@ -160,39 +165,39 @@ class DataApiIntegrationTest
   }
 
   @Test
-  void shouldGetWithComplexKey() throws Exception
+  void shouldGetWithComplexId() throws Exception
   {
-    ObjectNode key = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
     ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
 
-    String encodedKey = encode(key);
+    String encodedId = encode(id);
 
-    when(keyParser.parse(encodedKey)).thenReturn(key);
-    when(dataRepository.find(key)).thenReturn(Optional.of(data));
+    when(identityParser.parse(encodedId)).thenReturn(id);
+    when(dataRepository.find(id)).thenReturn(Optional.of(data));
 
-    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + encodedKey, ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + encodedId, ObjectNode.class);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
     assertEquals(data, response.getBody());
   }
 
   @Test
-  void shouldGetWithComplexKeys() throws Exception
+  void shouldGetWithComplexIds() throws Exception
   {
-    ObjectNode key1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
-    ObjectNode key2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
+    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
+    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
     ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
     ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B"), FIELD_NAME, TextNode.valueOf("Data 2")));
 
-    String encodedKey1 = encode(key1);
-    String encodedKey2 = encode(key2);
+    String encodedId1 = encode(id1);
+    String encodedId2 = encode(id2);
 
-    when(keyParser.parse(encodedKey1)).thenReturn(key1);
-    when(keyParser.parse(encodedKey2)).thenReturn(key2);
-    when(dataRepository.findAll(List.of(key1, key2))).thenReturn(List.of(data1, data2));
+    when(identityParser.parse(encodedId1)).thenReturn(id1);
+    when(identityParser.parse(encodedId2)).thenReturn(id2);
+    when(dataRepository.findWhere(any())).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam("key", List.of(encodedKey1, encodedKey2))
+      .queryParam("id", List.of(encodedId1, encodedId2))
       .encode()
       .toUriString();
 
@@ -228,7 +233,7 @@ class DataApiIntegrationTest
     when(dataRepository.findWhere(query, pageNumber, DEFAULT_PAGE_SIZE, emptySet(), ASCENDING)).thenReturn(page);
 
     ResponseEntity<Page<ObjectNode>> response = testRestTemplate.exchange(
-      "/?q=" + query + "&pageNumber=" + pageNumber,
+      "/?q=" + query + "&$pageNumber=" + pageNumber,
       HttpMethod.GET,
       null,
       TYPE_REFERENCE_PAGE
@@ -250,7 +255,7 @@ class DataApiIntegrationTest
     when(dataRepository.findWhere(query, DEFAULT_PAGE_NUMBER, pageSize, emptySet(), ASCENDING)).thenReturn(page);
 
     ResponseEntity<Page<ObjectNode>> response = testRestTemplate.exchange(
-      "/?q=" + query + "&pageSize=" + pageSize,
+      "/?q=" + query + "&$pageSize=" + pageSize,
       HttpMethod.GET,
       null,
       TYPE_REFERENCE_PAGE
@@ -273,7 +278,7 @@ class DataApiIntegrationTest
     when(dataRepository.findWhere(query, pageNumber, pageSize, emptySet(), ASCENDING)).thenReturn(page);
 
     ResponseEntity<Page<ObjectNode>> response = testRestTemplate.exchange(
-      "/?q=" + query + "&pageNumber=" + pageNumber + "&pageSize=" + pageSize,
+      "/?q=" + query + "&$pageNumber=" + pageNumber + "&$pageSize=" + pageSize,
       HttpMethod.GET,
       null,
       TYPE_REFERENCE_PAGE
@@ -284,37 +289,37 @@ class DataApiIntegrationTest
   }
 
   @Test
-  void shouldNotGetForUnknownKey()
+  void shouldNotGetForUnknownId()
   {
-    ObjectNode key = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
 
-    when(keyParser.parse(key.get(FIELD_ID).asText())).thenReturn(key);
-    when(dataRepository.find(key)).thenReturn(Optional.empty());
+    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(dataRepository.find(id)).thenReturn(Optional.empty());
 
-    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + key.get(FIELD_ID).asText(), ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + id.get(FIELD_ID).asText(), ObjectNode.class);
 
     assertTrue(response.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND));
   }
 
   @Test
-  void shouldNotGetWithKeyAndQuery()
+  void shouldNotGetWithIdAndQuery()
   {
-    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/?key=1&q=x", ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/?id=1&q=x", ObjectNode.class);
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Query parameter not allowed with key(s)", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Query parameter not allowed with id(s)", response.getBody().get(FIELD_MESSAGE).asText());
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"pageNumber=0", "pageSize=10", "pageNumber=0&pageSize=10"})
-  void shouldNotGetWithKeyAndPagination(String paginationParameter)
+  @ValueSource(strings = {"$pageNumber=0", "$pageSize=10", "$pageNumber=0&$pageSize=10"})
+  void shouldNotGetWithIdAndPagination(String paginationParameter)
   {
-    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/?key=1&" + paginationParameter, ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/?id=1&" + paginationParameter, ObjectNode.class);
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Pagination not supported with Key(s)", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Pagination not supported with Id(s)", response.getBody().get(FIELD_MESSAGE).asText());
   }
 
   @Test
@@ -432,30 +437,30 @@ class DataApiIntegrationTest
   }
 
   @Test
-  void shouldDeleteWithSimpleKey()
+  void shouldDeleteWithSimpleId()
   {
-    ObjectNode key = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
 
-    when(keyParser.parse(key.get(FIELD_ID).asText())).thenReturn(key);
+    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
 
-    ResponseEntity<Void> response = testRestTemplate.exchange("/" + key.get(FIELD_ID).asText(), HttpMethod.DELETE, null, Void.class);
+    ResponseEntity<Void> response = testRestTemplate.exchange("/" + id.get(FIELD_ID).asText(), HttpMethod.DELETE, null, Void.class);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
 
-    verify(dataRepository).delete(key);
+    verify(dataRepository).delete(id);
   }
 
   @Test
-  void shouldDeleteWithSimpleKeys()
+  void shouldDeleteWithSimpleIds()
   {
-    ObjectNode key1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
-    ObjectNode key2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
+    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
 
-    when(keyParser.parse(key1.get(FIELD_ID).asText())).thenReturn(key1);
-    when(keyParser.parse(key2.get(FIELD_ID).asText())).thenReturn(key2);
+    when(identityParser.parse(id1.get(FIELD_ID).asText())).thenReturn(id1);
+    when(identityParser.parse(id2.get(FIELD_ID).asText())).thenReturn(id2);
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam("key", List.of(key1.get(FIELD_ID).asText(), key2.get(FIELD_ID).asText()))
+      .queryParam("id", List.of(id1.get(FIELD_ID).asText(), id2.get(FIELD_ID).asText()))
       .encode()
       .toUriString();
 
@@ -463,39 +468,39 @@ class DataApiIntegrationTest
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
 
-    verify(dataRepository).deleteAll(List.of(key1, key2));
+    verify(dataRepository).deleteAll(List.of(id1, id2));
   }
 
   @Test
-  void shouldDeleteWithComplexKey() throws Exception
+  void shouldDeleteWithComplexId() throws Exception
   {
-    ObjectNode key = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
 
-    String encodedKey = encode(key);
+    String encodedId = encode(id);
 
-    when(keyParser.parse(encodedKey)).thenReturn(key);
+    when(identityParser.parse(encodedId)).thenReturn(id);
 
-    ResponseEntity<Void> response = testRestTemplate.exchange("/" + encodedKey, HttpMethod.DELETE, null, Void.class);
+    ResponseEntity<Void> response = testRestTemplate.exchange("/" + encodedId, HttpMethod.DELETE, null, Void.class);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
 
-    verify(dataRepository).delete(key);
+    verify(dataRepository).delete(id);
   }
 
   @Test
-  void shouldDeleteWithComplexKeys() throws Exception
+  void shouldDeleteWithComplexIds() throws Exception
   {
-    ObjectNode key1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
-    ObjectNode key2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
+    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
+    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
 
-    String encodedKey1 = encode(key1);
-    String encodedKey2 = encode(key2);
+    String encodedId1 = encode(id1);
+    String encodedId2 = encode(id2);
 
-    when(keyParser.parse(encodedKey1)).thenReturn(key1);
-    when(keyParser.parse(encodedKey2)).thenReturn(key2);
+    when(identityParser.parse(encodedId1)).thenReturn(id1);
+    when(identityParser.parse(encodedId2)).thenReturn(id2);
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam("key", List.of(encodedKey1, encodedKey2))
+      .queryParam("id", List.of(encodedId1, encodedId2))
       .encode()
       .toUriString();
 
@@ -503,16 +508,16 @@ class DataApiIntegrationTest
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
 
-    verify(dataRepository).deleteAll(List.of(key1, key2));
+    verify(dataRepository).deleteAll(List.of(id1, id2));
   }
 
   @Test
   void shouldNotDeleteWithRepositoryError()
   {
-    ObjectNode key = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
 
-    when(keyParser.parse(key.get(FIELD_ID).asText())).thenReturn(key);
-    doThrow(new DeleteException("TESTING")).when(dataRepository).delete(key);
+    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    doThrow(new DeleteException("TESTING")).when(dataRepository).delete(id);
 
     ResponseEntity<ObjectNode> response = testRestTemplate.exchange("/1", HttpMethod.DELETE, null, ObjectNode.class);
 
@@ -554,10 +559,22 @@ class DataApiIntegrationTest
     }
 
     @Bean
-    KeyParser<ObjectNode> keyParser()
+    IdentityParser<ObjectNode> idParser()
     {
       //noinspection unchecked
-      return mock(KeyParser.class);
+      return mock(IdentityParser.class);
+    }
+
+    @Bean
+    JsonCodec<ObjectNode> jsonCodec(ObjectMapper objectMapper)
+    {
+      return new DefaultJsonCodec<>(objectMapper, ObjectNode.class);
+    }
+
+    @Bean
+    QueryBuilder queryBuilder()
+    {
+      return new QueryBuilder(List.of(FIELD_ID, FIELD_NAME));
     }
   }
 }
