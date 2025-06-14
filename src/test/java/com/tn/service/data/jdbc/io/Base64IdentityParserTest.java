@@ -31,6 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import com.tn.service.IllegalParameterException;
 import com.tn.service.data.jdbc.domain.Field;
 
 class Base64IdentityParserTest
@@ -95,7 +96,7 @@ class Base64IdentityParserTest
     key.remove(missingField.name());
 
     assertThrows(
-      InvalidIdException.class,
+      IllegalParameterException.class,
       () ->new Base64IdentityParser(ALL_FIELDS, OBJECT_MAPPER).parse(Base64.encodeBase64String(OBJECT_MAPPER.writeValueAsBytes(key)))
     );
   }

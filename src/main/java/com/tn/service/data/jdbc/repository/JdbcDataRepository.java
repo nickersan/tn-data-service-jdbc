@@ -132,7 +132,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     try
     {
       return jdbcTemplate.query(
-        WHERE.formatted(selectSql, keyPredicate),
+        where(selectSql, keyPredicate),
         preparedStatement -> setValues(preparedStatement, parameterIndex(), key, keyFields),
         this::object
       ).stream().findFirst();
@@ -153,6 +153,30 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     catch (DataAccessException e)
     {
       throw new FindException(e.getCause());
+    }
+  }
+
+  @Override
+  public Collection<ObjectNode> findAll(Iterable<ObjectNode> keys, Collection<String> sort, Direction direction) throws FindException
+  {
+    try
+    {
+      AtomicInteger parameterIndex = parameterIndex();
+      return jdbcTemplate.query(
+        orderBy(where(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))), sort, direction),
+        preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
+        this::object
+      );
+    }
+    catch (DataAccessException e)
+    {
+      throw new DeleteException(e.getCause());
+    }
+    catch (WrappedException e)
+    {
+      Throwable unwrapped = unwrapException(e);
+      if (unwrapped instanceof RuntimeException) throw (RuntimeException)unwrapped;
+      else throw new FindException(unwrapped);
     }
   }
 
@@ -197,7 +221,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
 
       //noinspection SqlSourceToSinkFlow
       return jdbcTemplate.query(
-        orderBy(WHERE.formatted(selectSql, predicate.toSql()), sort, direction),
+        orderBy(where(selectSql, predicate.toSql()), sort, direction),
         predicate::setValues,
         this::object
       );
@@ -217,13 +241,13 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
 
       Future<Collection<ObjectNode>> objectsFuture = queryExecutor.submit(
         () -> jdbcTemplate.query(
-          paginated(orderBy(WHERE.formatted(selectSql, predicate.toSql()), sort, direction), pageNumber, pageSize),
+          paginated(orderBy(where(selectSql, predicate.toSql()), sort, direction), pageNumber, pageSize),
           predicate::setValues,
           this::object
         )
       );
       @SuppressWarnings({"DataFlowIssue", "SqlSourceToSinkFlow"})
-      int count = jdbcTemplate.query(WHERE.formatted(countSql, predicate.toSql()), predicate::setValues, this::count);
+      int count = jdbcTemplate.query(where(countSql, predicate.toSql()), predicate::setValues, this::count);
 
       return new Page<>(
         objectsFuture.get(),
@@ -363,14 +387,20 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public void delete(ObjectNode key) throws DeleteException
+  @Transactional
+  public Optional<ObjectNode> delete(ObjectNode key) throws DeleteException
   {
     try
     {
+      ObjectNode object = find(key).orElse(null);
+      if (object == null) return Optional.empty();
+
       jdbcTemplate.update(
-        WHERE.formatted(deleteSql, keyPredicate),
+        where(deleteSql, keyPredicate),
         preparedStatement -> setValues(preparedStatement, parameterIndex(), key, keyFields)
       );
+
+      return Optional.of(object);
     }
     catch (DataAccessException e)
     {
@@ -379,17 +409,23 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
   }
 
   @Override
-  public void deleteAll(Iterable<ObjectNode> keys) throws DeleteException
+  @Transactional
+  public Collection<ObjectNode> deleteAll(Iterable<ObjectNode> keys) throws DeleteException
   {
-    if (isEmpty(keys)) return;
+    if (isEmpty(keys)) return emptyList();
+
+    Collection<ObjectNode> objects = findAll(keys);
+    if (objects.size() != Iterables.size(keys)) return emptyList();
 
     try
     {
       AtomicInteger parameterIndex = parameterIndex();
       jdbcTemplate.update(
-        WHERE.formatted(deleteSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
+        where(deleteSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
         preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields)))
       );
+
+      return objects;
     }
     catch (DataAccessException e)
     {
@@ -399,7 +435,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     {
       Throwable unwrapped = unwrapException(e);
       if (unwrapped instanceof RuntimeException) throw (RuntimeException)unwrapped;
-      else throw new FindException(unwrapped);
+      else throw new DeleteException(unwrapped);
     }
   }
 
@@ -411,7 +447,7 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
     {
       AtomicInteger parameterIndex = parameterIndex();
       return jdbcTemplate.query(
-        WHERE.formatted(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
+        where(selectSql, repeat(format(PARENTHESIS, keyPredicate), LOGICAL_OR, size(keys))),
         preparedStatement -> keys.forEach(wrapConsumer(key -> setValues(preparedStatement, parameterIndex, key, keyFields))),
         this::object
       );
@@ -579,6 +615,11 @@ public class JdbcDataRepository implements DataRepository<ObjectNode, ObjectNode
       schema,
       table
     );
+  }
+
+  private String where(String sql, String predicate)
+  {
+    return WHERE.formatted(sql, predicate);
   }
 
   private String orderBy(String sql, Iterable<String> sort, Direction direction)

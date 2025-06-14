@@ -1,9 +1,12 @@
 package com.tn.service.data.jdbc.repository;
 
+import static java.util.Collections.emptySet;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static com.tn.lang.util.function.Lambdas.unwrapException;
+import static com.tn.service.data.domain.Direction.ASCENDING;
 import static com.tn.service.data.domain.Direction.DESCENDING;
 
 import java.math.BigDecimal;
@@ -197,7 +200,7 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
       ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
 
-      assertEquals(List.of(object1, object2, object3), dataRepository.findAll());
+      assertEquals(List.of(object1, object2, object3), dataRepository.findAll(emptySet(), ASCENDING));
     }
 
     @Test
@@ -217,8 +220,8 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
       ObjectNode object3 = dataRepository.insert(object(3, true, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
 
-      assertEquals(new Page<>(List.of(object1, object2), 0, 2, 3, 2), dataRepository.findAll(0, 2));
-      assertEquals(new Page<>(List.of(object3), 1, 2, 3, 2), dataRepository.findAll(1, 2));
+      assertEquals(new Page<>(List.of(object1, object2), 0, 2, 3, 2), dataRepository.findAll(0, 2, emptySet(), ASCENDING));
+      assertEquals(new Page<>(List.of(object3), 1, 2, 3, 2), dataRepository.findAll(1, 2, emptySet(), ASCENDING));
     }
 
     @Test
@@ -240,7 +243,7 @@ class JdbcDataRepositoryIntegrationTest
       {
         dataRepository.insertAll(objectNodes);
 
-        assertEquals(List.of(objectNode), dataRepository.findWhere(query));
+        assertEquals(List.of(objectNode), dataRepository.findWhere(query, emptySet(), ASCENDING));
       }
       catch (WrappedException e)
       {
@@ -277,7 +280,7 @@ class JdbcDataRepositoryIntegrationTest
 
         assertEquals(
           new Page<>(List.of(objectNode), pageNumber, pageSize, 1, 1),
-          dataRepository.findWhere(query, pageNumber, pageSize)
+          dataRepository.findWhere(query, pageNumber, pageSize, emptySet(), ASCENDING)
         );
       }
       catch (WrappedException e)
@@ -370,7 +373,7 @@ class JdbcDataRepositoryIntegrationTest
       assertEquals(object1, dataRepository.insert(object1));
       assertEquals(object2, dataRepository.insert(object2));
       assertEquals(object3, dataRepository.insert(object3));
-      assertEquals(List.of(object1, object2, object3), dataRepository.findAll());
+      assertEquals(List.of(object1, object2, object3), dataRepository.findAll(emptySet(), ASCENDING));
     }
 
     @Test
@@ -387,7 +390,7 @@ class JdbcDataRepositoryIntegrationTest
       DataRepository<ObjectNode, ObjectNode> dataRepository = ((JdbcDataRepository)JdbcDataRepositoryIntegrationTest.this.dataRepository).withBatchSize(2);
 
       assertEquals(objects, dataRepository.insertAll(objects));
-      assertEquals(objects, dataRepository.findAll());
+      assertEquals(objects, dataRepository.findAll(emptySet(), ASCENDING));
     }
   }
 
@@ -437,7 +440,7 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode persistedObject3 = dataRepository.insert(object3);
       assertEquals(object3.set(FIELD_ID, LongNode.valueOf(EXPECTED_ID.getAndIncrement())), persistedObject3);
 
-      assertEquals(List.of(persistedObject1, persistedObject2, persistedObject3), dataRepository.findAll());
+      assertEquals(List.of(persistedObject1, persistedObject2, persistedObject3), dataRepository.findAll(emptySet(), ASCENDING));
     }
 
     @Test
@@ -457,8 +460,8 @@ class JdbcDataRepositoryIntegrationTest
         object3.set(FIELD_ID, LongNode.valueOf(EXPECTED_ID.getAndIncrement()))
       );
 
-      assertEquals(expectedObjects, dataRepository.insertAll(object1, object2, object3));
-      assertEquals(expectedObjects, dataRepository.findAll());
+      assertEquals(expectedObjects, dataRepository.insertAll(List.of(object1, object2, object3)));
+      assertEquals(expectedObjects, dataRepository.findAll(emptySet(), ASCENDING));
     }
   }
 
@@ -574,8 +577,8 @@ class JdbcDataRepositoryIntegrationTest
       mutated3.setAll(object3);
       mutated3.setAll(mutation3);
 
-      assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.updateAll(mutation1, mutation2, mutation3));
-      assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.findAll());
+      assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.updateAll(List.of(mutation1, mutation2, mutation3)));
+      assertEquals(List.of(mutated1, mutated2, mutated3), dataRepository.findAll(emptySet(), ASCENDING));
     }
 
     private static Object mutation(ObjectNode object, Map<Field, Object> values)
@@ -621,13 +624,13 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
       ObjectNode object3 = dataRepository.insert(object(3, null, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
 
-      assertEquals(List.of(object1, object2, object3), dataRepository.findAll());
+      assertEquals(List.of(object1, object2, object3), dataRepository.findAll(emptySet(), ASCENDING));
       dataRepository.delete(object2);
-      assertEquals(List.of(object1, object3), dataRepository.findAll());
+      assertEquals(List.of(object1, object3), dataRepository.findAll(emptySet(), ASCENDING));
       dataRepository.delete(object1);
-      assertEquals(List.of(object3), dataRepository.findAll());
+      assertEquals(List.of(object3), dataRepository.findAll(emptySet(), ASCENDING));
       dataRepository.delete(object3);
-      assertTrue(dataRepository.findAll().isEmpty());
+      assertTrue(dataRepository.findAll(emptySet(), ASCENDING).isEmpty());
     }
 
     @Test
@@ -637,11 +640,11 @@ class JdbcDataRepositoryIntegrationTest
       ObjectNode object2 = dataRepository.insert(object(2, false, 11, 12, 2.23F, 3.34, BigDecimal.valueOf(4.45), "T2"));
       ObjectNode object3 = dataRepository.insert(object(3, null, 12, 13, 3.23F, 4.34, BigDecimal.valueOf(5.45), "T3"));
 
-      assertEquals(List.of(object1, object2, object3), dataRepository.findAll());
-      dataRepository.deleteAll(object1, object2);
-      assertEquals(List.of(object3), dataRepository.findAll());
-      dataRepository.deleteAll(object3);
-      assertTrue(dataRepository.findAll().isEmpty());
+      assertEquals(List.of(object1, object2, object3), dataRepository.findAll(emptySet(), ASCENDING));
+      dataRepository.deleteAll(List.of(object1, object2));
+      assertEquals(List.of(object3), dataRepository.findAll(emptySet(), ASCENDING));
+      dataRepository.deleteAll(List.of(object3));
+      assertTrue(dataRepository.findAll(emptySet(), ASCENDING).isEmpty());
     }
   }
 }

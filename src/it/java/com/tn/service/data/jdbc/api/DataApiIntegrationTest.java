@@ -6,7 +6,6 @@ import static java.util.Collections.emptySet;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
@@ -75,7 +74,7 @@ class DataApiIntegrationTest
   private static final String FIELD_ID = "id";
   private static final String FIELD_ID_2 = "id2";
   private static final String FIELD_NAME = "name";
-  private static final ParameterizedTypeReference<List<ObjectNode>> TYPE_REFERENCE_OBJECTS = new ParameterizedTypeReference<>() {};
+  private static final ParameterizedTypeReference<List<ObjectNode>> TYPE_REFERENCE_LIST = new ParameterizedTypeReference<>() {};
   private static final ParameterizedTypeReference<Page<ObjectNode>> TYPE_REFERENCE_PAGE = new ParameterizedTypeReference<>() {};
 
   @Autowired
@@ -85,7 +84,7 @@ class DataApiIntegrationTest
   DataRepository<ObjectNode, ObjectNode> dataRepository;
 
   @Autowired
-  IdentityParser<ObjectNode> identityParser;
+  IdentityParser<String, ObjectNode> identityParser;
 
   @Autowired
   ObjectMapper objectMapper;
@@ -122,7 +121,7 @@ class DataApiIntegrationTest
   }
 
   @Test
-  void shouldGetWithId()
+  void shouldGetWithSimpleId()
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
     ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
@@ -142,19 +141,17 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithSimpleIds()
   {
-    IntNode id1 = IntNode.valueOf(1);
-    IntNode id2 = IntNode.valueOf(2);
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, id1, FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, id2, FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
 
-    when(identityParser.parse(id1.asText())).thenReturn(objectNode(Map.of(FIELD_ID, id1)));
-    when(identityParser.parse(id2.asText())).thenReturn(objectNode(Map.of(FIELD_ID, id2)));
-
-    when(dataRepository.findWhere(format("(%1$s=%2$s||%1$s=%3$s)", FIELD_ID, id1.asText(), id2.asText()), emptySet(), ASCENDING))
-      .thenReturn(List.of(data1, data2));
+    when(identityParser.parse(id1.get(FIELD_ID).asText())).thenReturn(id1);
+    when(identityParser.parse(id2.get(FIELD_ID).asText())).thenReturn(id2);
+    when(dataRepository.findAll(Set.of(id1, id2), emptySet(), ASCENDING)).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam(FIELD_ID, List.of(id1.asText(), id2.asText()))
+      .queryParam(FIELD_ID, List.of(id1.get(FIELD_ID).asText(), id2.get(FIELD_ID).asText()))
       .encode()
       .toUriString();
 
@@ -194,7 +191,7 @@ class DataApiIntegrationTest
 
     when(identityParser.parse(encodedId1)).thenReturn(id1);
     when(identityParser.parse(encodedId2)).thenReturn(id2);
-    when(dataRepository.findWhere(any())).thenReturn(List.of(data1, data2));
+    when(dataRepository.findAll(Set.of(id1, id2), emptySet(), ASCENDING)).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
       .queryParam("id", List.of(encodedId1, encodedId2))
@@ -308,7 +305,7 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Query parameter not allowed with id(s)", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Identity parameters can only be used in isolation from other non-sort parameters", response.getBody().get(FIELD_MESSAGE).asText());
   }
 
   @ParameterizedTest
@@ -319,7 +316,7 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Pagination not supported with Id(s)", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Identity parameters can only be used in isolation from other non-sort parameters", response.getBody().get(FIELD_MESSAGE).asText());
   }
 
   @Test
@@ -347,7 +344,7 @@ class DataApiIntegrationTest
 
     when(dataRepository.insertAll(anyIterable())).thenReturn(data);
 
-    ResponseEntity<List<ObjectNode>> response = testRestTemplate.exchange("/", HttpMethod.POST, body(data), TYPE_REFERENCE_OBJECTS);
+    ResponseEntity<List<ObjectNode>> response = testRestTemplate.exchange("/", HttpMethod.POST, body(data), TYPE_REFERENCE_LIST);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
     assertEquals(data, response.getBody());
@@ -404,7 +401,7 @@ class DataApiIntegrationTest
 
     when(dataRepository.updateAll(anyIterable())).thenReturn(data);
 
-    ResponseEntity<List<ObjectNode>> response = testRestTemplate.exchange("/", HttpMethod.PUT, body(data), TYPE_REFERENCE_OBJECTS);
+    ResponseEntity<List<ObjectNode>> response = testRestTemplate.exchange("/", HttpMethod.PUT, body(data), TYPE_REFERENCE_LIST);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
     assertEquals(data, response.getBody());
@@ -440,14 +437,16 @@ class DataApiIntegrationTest
   void shouldDeleteWithSimpleId()
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
 
     when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(dataRepository.delete(id)).thenReturn(Optional.of(data));
 
-    ResponseEntity<Void> response = testRestTemplate.exchange("/" + id.get(FIELD_ID).asText(), HttpMethod.DELETE, null, Void.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.exchange("/" + id.get(FIELD_ID).asText(), HttpMethod.DELETE, null, ObjectNode.class);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
-
-    verify(dataRepository).delete(id);
+    assertNotNull(response.getBody());
+    assertEquals(data, response.getBody());
   }
 
   @Test
@@ -455,36 +454,41 @@ class DataApiIntegrationTest
   {
     ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
     ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
 
     when(identityParser.parse(id1.get(FIELD_ID).asText())).thenReturn(id1);
     when(identityParser.parse(id2.get(FIELD_ID).asText())).thenReturn(id2);
+    when(dataRepository.deleteAll(Set.of(id1, id2))).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
       .queryParam("id", List.of(id1.get(FIELD_ID).asText(), id2.get(FIELD_ID).asText()))
       .encode()
       .toUriString();
 
-    ResponseEntity<Void> response = testRestTemplate.exchange(url, HttpMethod.DELETE, null, Void.class);
+    ResponseEntity<List<ObjectNode>> response = testRestTemplate.exchange(url, HttpMethod.DELETE, null, TYPE_REFERENCE_LIST);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
-
-    verify(dataRepository).deleteAll(List.of(id1, id2));
+    assertNotNull(response.getBody());
+    assertEquals(List.of(data1, data2), response.getBody());
   }
 
   @Test
   void shouldDeleteWithComplexId() throws Exception
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
 
     String encodedId = encode(id);
 
     when(identityParser.parse(encodedId)).thenReturn(id);
+    when(dataRepository.delete(id)).thenReturn(Optional.of(data));
 
-    ResponseEntity<Void> response = testRestTemplate.exchange("/" + encodedId, HttpMethod.DELETE, null, Void.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.exchange("/" + encodedId, HttpMethod.DELETE, null, ObjectNode.class);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
-
-    verify(dataRepository).delete(id);
+    assertNotNull(response.getBody());
+    assertEquals(data, response.getBody());
   }
 
   @Test
@@ -492,23 +496,26 @@ class DataApiIntegrationTest
   {
     ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
     ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B"), FIELD_NAME, TextNode.valueOf("Data 2")));
 
     String encodedId1 = encode(id1);
     String encodedId2 = encode(id2);
 
     when(identityParser.parse(encodedId1)).thenReturn(id1);
     when(identityParser.parse(encodedId2)).thenReturn(id2);
+    when(dataRepository.deleteAll(Set.of(id1, id2))).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
       .queryParam("id", List.of(encodedId1, encodedId2))
       .encode()
       .toUriString();
 
-    ResponseEntity<ArrayNode> response = testRestTemplate.exchange(url, HttpMethod.DELETE, null, ArrayNode.class);
+    ResponseEntity<List<ObjectNode>> response = testRestTemplate.exchange(url, HttpMethod.DELETE, null, TYPE_REFERENCE_LIST);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
-
-    verify(dataRepository).deleteAll(List.of(id1, id2));
+    assertNotNull(response.getBody());
+    assertEquals(List.of(data1, data2), response.getBody());
   }
 
   @Test
@@ -559,7 +566,7 @@ class DataApiIntegrationTest
     }
 
     @Bean
-    IdentityParser<ObjectNode> idParser()
+    IdentityParser<String, ObjectNode> idParser()
     {
       //noinspection unchecked
       return mock(IdentityParser.class);

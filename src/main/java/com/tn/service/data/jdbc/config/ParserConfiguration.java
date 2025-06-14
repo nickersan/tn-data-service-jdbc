@@ -22,7 +22,7 @@ class ParserConfiguration
 {
   @Bean
   @Lazy
-  IdentityParser<?> keyParser(Collection<Field> fields, ObjectMapper objectMapper)
+  IdentityParser<String, ?> identityParser(Collection<Field> fields, ObjectMapper objectMapper)
   {
     return new Base64IdentityParser(fields, objectMapper);
   }

@@ -10,10 +10,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import com.tn.service.IllegalParameterException;
 import com.tn.service.data.jdbc.domain.Field;
 import com.tn.service.data.parameter.IdentityParser;
 
-public class Base64IdentityParser implements IdentityParser<ObjectNode>
+public class Base64IdentityParser implements IdentityParser<String, ObjectNode>
 {
   private final Collection<Field> keyFields;
   private final ObjectMapper objectMapper;
@@ -25,7 +26,7 @@ public class Base64IdentityParser implements IdentityParser<ObjectNode>
   }
 
   @Override
-  public ObjectNode parse(String key) throws InvalidIdException
+  public ObjectNode parse(String key) throws IllegalParameterException
   {
     return keyFields.size() > 1 ? parseAsObject(key) : parseAsValue(key);
   }
@@ -38,7 +39,7 @@ public class Base64IdentityParser implements IdentityParser<ObjectNode>
     }
     catch (IOException e)
     {
-      throw new InvalidIdException("Invalid key: " + key, e);
+      throw new IllegalParameterException("Invalid key: " + key, e);
     }
   }
 
@@ -48,15 +49,15 @@ public class Base64IdentityParser implements IdentityParser<ObjectNode>
     {
       if (keyFields.size() > 1)
       {
-        throw new InvalidIdException("Invalid key: " + key);
+        throw new IllegalParameterException("Invalid key: " + key);
       }
-      Field keyField = keyFields.stream().findFirst().orElseThrow(() -> new InvalidIdException("Invalid key: " + key));
+      Field keyField = keyFields.stream().findFirst().orElseThrow(() -> new IllegalParameterException("Invalid key: " + key));
 
       return objectNode(keyField, key);
     }
     catch (NumberFormatException | DateTimeParseException e)
     {
-      throw new IdParseException("Cannot parse key: " + key, e);
+      throw new IllegalParameterException("Cannot parse key: " + key, e);
     }
   }
 
@@ -75,7 +76,7 @@ public class Base64IdentityParser implements IdentityParser<ObjectNode>
         JsonNode value = key.get(field.name());
         if (value == null)
         {
-          throw new InvalidIdException("Invalid key: " + key + " - field: " + field.name());
+          throw new IllegalParameterException("Invalid key: " + key + " - field: " + field.name());
         }
 
         try
@@ -84,7 +85,7 @@ public class Base64IdentityParser implements IdentityParser<ObjectNode>
         }
         catch (IllegalArgumentException e)
         {
-          throw new InvalidIdException("Invalid key: " + key + " - field: " + field.name(), e);
+          throw new IllegalParameterException("Invalid key: " + key + " - field: " + field.name(), e);
         }
       }
     };
