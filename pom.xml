@@ -79,7 +79,6 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- currently no fix for commons-collections vulnerability - 2023-09-15 -->
     <dependency>
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-contract-verifier</artifactId>
