@@ -53,6 +53,10 @@ import com.tn.service.data.repository.DataRepository;
   webEnvironment = SpringBootTest.WebEnvironment.NONE,
   properties =
   {
+//    "spring.datasource.driver-class-name=org.h2.Driver",
+//    "spring.datasource.url=jdbc:h2:mem:test;DB_CLOSE_ON_EXIT=FALSE",
+//    "spring.datasource.username=sa",
+//    "spring.datasource.password=",
     "tn.data.schema=PUBLIC",
     "tn.data.table=TEST",
   }

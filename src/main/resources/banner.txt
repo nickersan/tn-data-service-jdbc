@@ -4,4 +4,4 @@ ___________                      __   _______  .__        __
   |    |   |  | \/  |  /\___ \  |  | /    |    \  \  \___|    <
   |____|   |__|  |____//____  > |__| \____|__  /__|\___  >__|_ \
                             \/               \/        \/     \/
- jdbc-data-service ${project.version}
+ jdbc-data-service-jdbc ${project.version}
