@@ -11,12 +11,12 @@
   <parent>
     <groupId>com.tn</groupId>
     <artifactId>tn-parent</artifactId>
-    <version>0.0.01-SNAPSHOT</version>
+    <version>1.0.1</version>
   </parent>
 
   <groupId>com.tn.service.data</groupId>
   <artifactId>tn-data-service-jdbc</artifactId>
-  <version>0.0.01-SNAPSHOT</version>
+  <version>1.0.0-SNAPSHOT</version>
 
   <packaging>jar</packaging>
 
@@ -25,13 +25,11 @@
     <dependency>
       <groupId>com.tn.service.data</groupId>
       <artifactId>tn-data-service</artifactId>
-      <version>0.0.01-SNAPSHOT</version>
     </dependency>
 
     <dependency>
       <groupId>com.tn.query</groupId>
       <artifactId>tn-query-jdbc</artifactId>
-      <version>0.0.01-SNAPSHOT</version>
     </dependency>
 
     <dependency>
@@ -73,5 +71,20 @@
     </dependency>
 
   </dependencies>
+
+  <repositories>
+    <repository>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/nickersan/maven-repository</url>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </snapshots>
+    </repository>
+  </repositories>
 
 </project>
