@@ -1,0 +1,39 @@
+name: release
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+
+    concurrency:
+      group: "release"
+      cancel-in-progress: false
+
+    steps:
+
+      - name: Checkout release ${{ github.event.release.tag_name }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Deploy ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_TOKEN }}
+        run: |
+          mvn --batch-mode deploy
