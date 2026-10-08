@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.tn</groupId>
     <artifactId>tn-parent</artifactId>
-    <version>3.0.0</version>
+    <version>4.0.0</version>
   </parent>
 
   <groupId>com.tn.service.data</groupId>
@@ -16,16 +16,25 @@
 
   <packaging>jar</packaging>
 
+  <properties>
+
+    <tn-data-service.version>2.0.0</tn-data-service.version>
+    <tn-query-jdbc.version>1.0.0</tn-query-jdbc.version>
+
+  </properties>
+
   <dependencies>
 
     <dependency>
       <groupId>com.tn.service.data</groupId>
       <artifactId>tn-data-service</artifactId>
+      <version>${tn-data-service.version}</version>
     </dependency>
 
     <dependency>
       <groupId>com.tn.query</groupId>
       <artifactId>tn-query-jdbc</artifactId>
+      <version>${tn-query-jdbc.version}</version>
     </dependency>
 
     <dependency>
