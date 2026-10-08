@@ -1,14 +1,14 @@
 package com.tn.service.data.jdbc.io;
 
-import java.io.IOException;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.function.Consumer;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import com.tn.service.IllegalParameterException;
 import com.tn.service.data.jdbc.domain.Field;
@@ -37,7 +37,7 @@ public class Base64IdentityParser implements IdentityParser<String, ObjectNode>
     {
       return checkFields(objectMapper.readValue(Base64.getDecoder().decode(key), ObjectNode.class));
     }
-    catch (IOException e)
+    catch (JacksonException e)
     {
       throw new IllegalParameterException("Invalid key: " + key, e);
     }

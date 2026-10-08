@@ -6,7 +6,6 @@ import java.util.Collection;
 import java.util.concurrent.Executors;
 import javax.sql.DataSource;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
+import tools.jackson.databind.node.ObjectNode;
 
 import com.tn.query.DefaultQueryParser;
 import com.tn.query.ValueMappers;

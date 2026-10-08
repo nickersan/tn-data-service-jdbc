@@ -2,12 +2,12 @@ package com.tn.service.data.jdbc.config;
 
 import java.util.Collection;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import com.tn.service.data.io.DefaultJsonCodec;
 import com.tn.service.data.io.JsonCodec;

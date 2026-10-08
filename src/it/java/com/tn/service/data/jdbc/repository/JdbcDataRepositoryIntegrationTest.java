@@ -21,17 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import javax.sql.DataSource;
 
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,6 +35,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.jdbc.Sql;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import com.tn.lang.util.Page;
 import com.tn.lang.util.function.WrappedException;
@@ -333,8 +330,8 @@ class JdbcDataRepositoryIntegrationTest
 
     private static Stream<List<Object>> queryArguments(ObjectNode objectNode)
     {
-      return StreamSupport.stream(Spliterators.spliteratorUnknownSize(objectNode.fieldNames(), Spliterator.ORDERED), false)
-        .map(fieldName -> fieldName + "=" + (objectNode.has(fieldName) ? objectNode.get(fieldName).asText() : "null"))
+      return objectNode.propertyNames().stream()
+        .map(fieldName -> fieldName + "=" + (objectNode.has(fieldName) ? objectNode.get(fieldName).asString() : "null"))
         .map(query -> new ArrayList<>(List.of(query, objectNode)));
     }
   }

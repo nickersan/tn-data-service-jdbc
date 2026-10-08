@@ -3,8 +3,8 @@ package com.tn.service.data.jdbc.domain;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 public record Field(String name, FieldType type, Column column)
 {

@@ -9,14 +9,14 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.TextNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.FloatNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.StringNode;
 
 public enum FieldType
 {
@@ -253,7 +253,7 @@ public enum FieldType
     @Override
     public boolean isJsonType(JsonNode value)
     {
-      return value != null && value.isTextual();
+      return value != null && value.isString();
     }
 
     @Override
@@ -266,13 +266,13 @@ public enum FieldType
     @Override
     protected Object castJavaType(JsonNode value)
     {
-      return value.asText();
+      return value.asString();
     }
 
     @Override
     protected JsonNode castJsonType(Object value)
     {
-      return TextNode.valueOf((String)value);
+      return StringNode.valueOf((String)value);
     }
 
     @Override
@@ -289,7 +289,7 @@ public enum FieldType
     {
       try
       {
-        return value != null && value.isTextual() && Date.valueOf(value.asText()) != null;
+        return value != null && value.isString() && Date.valueOf(value.asString()) != null;
       }
       catch (IllegalArgumentException e)
       {
@@ -307,13 +307,13 @@ public enum FieldType
     @Override
     protected Object castJavaType(JsonNode value)
     {
-      return Date.valueOf(value.asText());
+      return Date.valueOf(value.asString());
     }
 
     @Override
     protected JsonNode castJsonType(Object value)
     {
-      return TextNode.valueOf(value.toString());
+      return StringNode.valueOf(value.toString());
     }
 
     @Override
@@ -331,7 +331,7 @@ public enum FieldType
       try
       {
         //noinspection ConstantValue
-        return value != null && value.isTextual() && Time.valueOf(LocalTime.parse(value.asText())) != null;
+        return value != null && value.isString() && Time.valueOf(LocalTime.parse(value.asString())) != null;
       }
       catch (IllegalArgumentException e)
       {
@@ -349,13 +349,13 @@ public enum FieldType
     @Override
     protected Object castJavaType(JsonNode value)
     {
-      return Time.valueOf(value.asText());
+      return Time.valueOf(value.asString());
     }
 
     @Override
     protected JsonNode castJsonType(Object value)
     {
-      return TextNode.valueOf(value.toString());
+      return StringNode.valueOf(value.toString());
     }
 
     @Override
@@ -373,7 +373,7 @@ public enum FieldType
       try
       {
         //noinspection ConstantValue
-        return value != null && value.isTextual() && Timestamp.valueOf(LocalDateTime.parse(value.asText())) != null;
+        return value != null && value.isString() && Timestamp.valueOf(LocalDateTime.parse(value.asString())) != null;
       }
       catch (IllegalArgumentException e)
       {
@@ -391,13 +391,13 @@ public enum FieldType
     @Override
     protected Object castJavaType(JsonNode value)
     {
-      return Timestamp.valueOf(LocalDateTime.parse(value.asText()));
+      return Timestamp.valueOf(LocalDateTime.parse(value.asString()));
     }
 
     @Override
     protected JsonNode castJsonType(Object value)
     {
-      return TextNode.valueOf(((Timestamp)value).toLocalDateTime().toString());
+      return StringNode.valueOf(((Timestamp)value).toLocalDateTime().toString());
     }
 
     @Override

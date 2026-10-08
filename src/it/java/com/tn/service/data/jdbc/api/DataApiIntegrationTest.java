@@ -28,20 +28,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -51,6 +46,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.StringNode;
 
 import com.tn.lang.util.Page;
 import com.tn.service.data.io.DefaultJsonCodec;
@@ -69,6 +70,7 @@ import com.tn.service.data.repository.UpdateException;
 @SuppressWarnings("SpringBootApplicationProperties")
 @EnableAutoConfiguration
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+@AutoConfigureTestRestTemplate
 class DataApiIntegrationTest
 {
   private static final String FIELD_ID = "id";
@@ -92,8 +94,8 @@ class DataApiIntegrationTest
   @Test
   void shouldGet()
   {
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, StringNode.valueOf("Data 2")));
 
     when(dataRepository.findAll(emptySet(), ASCENDING)).thenReturn(List.of(data1, data2));
 
@@ -106,8 +108,8 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithSort()
   {
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, StringNode.valueOf("Data 2")));
 
     when(dataRepository.findAll(Set.of(FIELD_NAME), DESCENDING)).thenReturn(List.of(data1, data2));
 
@@ -124,13 +126,13 @@ class DataApiIntegrationTest
   void shouldGetWithSimpleId()
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
 
-    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(identityParser.parse(id.get(FIELD_ID).asString())).thenReturn(id);
     when(dataRepository.find(id)).thenReturn(Optional.of(data));
 
     ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity(
-      format("/%s", id.get(FIELD_ID).asText()),
+      format("/%s", id.get(FIELD_ID).asString()),
       ObjectNode.class
     );
 
@@ -143,15 +145,15 @@ class DataApiIntegrationTest
   {
     ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
     ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, StringNode.valueOf("Data 2")));
 
-    when(identityParser.parse(id1.get(FIELD_ID).asText())).thenReturn(id1);
-    when(identityParser.parse(id2.get(FIELD_ID).asText())).thenReturn(id2);
+    when(identityParser.parse(id1.get(FIELD_ID).asString())).thenReturn(id1);
+    when(identityParser.parse(id2.get(FIELD_ID).asString())).thenReturn(id2);
     when(dataRepository.findAll(Set.of(id1, id2))).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam(FIELD_ID, List.of(id1.get(FIELD_ID).asText(), id2.get(FIELD_ID).asText()))
+      .queryParam(FIELD_ID, List.of(id1.get(FIELD_ID).asString(), id2.get(FIELD_ID).asString()))
       .encode()
       .toUriString();
 
@@ -164,8 +166,8 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithComplexId() throws Exception
   {
-    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A"), FIELD_NAME, StringNode.valueOf("Data 1")));
 
     String encodedId = encode(id);
 
@@ -181,10 +183,10 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithComplexIds() throws Exception
   {
-    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
-    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B"), FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A")));
+    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, StringNode.valueOf("B")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A"), FIELD_NAME, StringNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, StringNode.valueOf("B"), FIELD_NAME, StringNode.valueOf("Data 2")));
 
     String encodedId1 = encode(id1);
     String encodedId2 = encode(id2);
@@ -207,7 +209,7 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithQuery()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
     String query = "name=Data 1";
 
     when(dataRepository.findWhere(query, emptySet(), ASCENDING)).thenReturn(List.of(data));
@@ -221,7 +223,7 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithQueryAndPageNumber()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
     String query = "name=Data 1";
     int pageNumber = 1;
 
@@ -243,7 +245,7 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithQueryAndPageSize()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
     String query = "name=Data 1";
     int pageSize = 10;
 
@@ -265,7 +267,7 @@ class DataApiIntegrationTest
   @Test
   void shouldGetWithQueryAndPageNumberAndPageSize()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
     String query = "name=Data 1";
     int pageNumber = 1;
     int pageSize = 10;
@@ -290,10 +292,10 @@ class DataApiIntegrationTest
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
 
-    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(identityParser.parse(id.get(FIELD_ID).asString())).thenReturn(id);
     when(dataRepository.find(id)).thenReturn(Optional.empty());
 
-    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + id.get(FIELD_ID).asText(), ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.getForEntity("/" + id.get(FIELD_ID).asString(), ObjectNode.class);
 
     assertTrue(response.getStatusCode().isSameCodeAs(HttpStatus.NOT_FOUND));
   }
@@ -305,7 +307,7 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Identity parameters can only be used in isolation from other parameters", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Identity parameters can only be used in isolation from other parameters", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   @ParameterizedTest
@@ -316,13 +318,13 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Identity parameters can only be used in isolation from other parameters", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Identity parameters can only be used in isolation from other parameters", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   @Test
   void shouldPostWithObject()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
 
     when(dataRepository.insert(data)).thenReturn(data);
 
@@ -338,8 +340,8 @@ class DataApiIntegrationTest
   void shouldPostWithArray()
   {
     List<ObjectNode> data = List.of(
-      objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1"))),
-      objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")))
+      objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1"))),
+      objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, StringNode.valueOf("Data 2")))
     );
 
     when(dataRepository.insertAll(anyIterable())).thenReturn(data);
@@ -359,13 +361,13 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Invalid body", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Invalid body", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   @Test
   void shouldNotPostWithRepositoryError()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
 
     when(dataRepository.insert(data)).thenThrow(new InsertException("TESTING"));
 
@@ -373,13 +375,13 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("TESTING", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("TESTING", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   @Test
   void shouldPutWithObject()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
 
     when(dataRepository.update(data)).thenReturn(data);
 
@@ -395,8 +397,8 @@ class DataApiIntegrationTest
   void shouldPutWithArray()
   {
     List<ObjectNode> data = List.of(
-      objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1"))),
-      objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")))
+      objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1"))),
+      objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, StringNode.valueOf("Data 2")))
     );
 
     when(dataRepository.updateAll(anyIterable())).thenReturn(data);
@@ -416,13 +418,13 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("Invalid body", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("Invalid body", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   @Test
   void shouldNotPutWithRepositoryError()
   {
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
 
     when(dataRepository.update(data)).thenThrow(new UpdateException("TESTING"));
 
@@ -430,19 +432,19 @@ class DataApiIntegrationTest
 
     assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("TESTING", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("TESTING", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   @Test
   void shouldDeleteWithSimpleId()
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
 
-    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(identityParser.parse(id.get(FIELD_ID).asString())).thenReturn(id);
     when(dataRepository.delete(id)).thenReturn(Optional.of(data));
 
-    ResponseEntity<ObjectNode> response = testRestTemplate.exchange("/" + id.get(FIELD_ID).asText(), HttpMethod.DELETE, null, ObjectNode.class);
+    ResponseEntity<ObjectNode> response = testRestTemplate.exchange("/" + id.get(FIELD_ID).asString(), HttpMethod.DELETE, null, ObjectNode.class);
 
     assertTrue(response.getStatusCode().is2xxSuccessful());
     assertNotNull(response.getBody());
@@ -454,15 +456,15 @@ class DataApiIntegrationTest
   {
     ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
     ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2)));
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_NAME, StringNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_NAME, StringNode.valueOf("Data 2")));
 
-    when(identityParser.parse(id1.get(FIELD_ID).asText())).thenReturn(id1);
-    when(identityParser.parse(id2.get(FIELD_ID).asText())).thenReturn(id2);
+    when(identityParser.parse(id1.get(FIELD_ID).asString())).thenReturn(id1);
+    when(identityParser.parse(id2.get(FIELD_ID).asString())).thenReturn(id2);
     when(dataRepository.deleteAll(Set.of(id1, id2))).thenReturn(List.of(data1, data2));
 
     String url = UriComponentsBuilder.fromPath("/")
-      .queryParam("id", List.of(id1.get(FIELD_ID).asText(), id2.get(FIELD_ID).asText()))
+      .queryParam("id", List.of(id1.get(FIELD_ID).asString(), id2.get(FIELD_ID).asString()))
       .encode()
       .toUriString();
 
@@ -476,8 +478,8 @@ class DataApiIntegrationTest
   @Test
   void shouldDeleteWithComplexId() throws Exception
   {
-    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
-    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
+    ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A")));
+    ObjectNode data = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A"), FIELD_NAME, StringNode.valueOf("Data 1")));
 
     String encodedId = encode(id);
 
@@ -494,10 +496,10 @@ class DataApiIntegrationTest
   @Test
   void shouldDeleteWithComplexIds() throws Exception
   {
-    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A")));
-    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B")));
-    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, TextNode.valueOf("A"), FIELD_NAME, TextNode.valueOf("Data 1")));
-    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, TextNode.valueOf("B"), FIELD_NAME, TextNode.valueOf("Data 2")));
+    ObjectNode id1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A")));
+    ObjectNode id2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, StringNode.valueOf("B")));
+    ObjectNode data1 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1), FIELD_ID_2, StringNode.valueOf("A"), FIELD_NAME, StringNode.valueOf("Data 1")));
+    ObjectNode data2 = objectNode(Map.of(FIELD_ID, IntNode.valueOf(2), FIELD_ID_2, StringNode.valueOf("B"), FIELD_NAME, StringNode.valueOf("Data 2")));
 
     String encodedId1 = encode(id1);
     String encodedId2 = encode(id2);
@@ -523,14 +525,14 @@ class DataApiIntegrationTest
   {
     ObjectNode id = objectNode(Map.of(FIELD_ID, IntNode.valueOf(1)));
 
-    when(identityParser.parse(id.get(FIELD_ID).asText())).thenReturn(id);
+    when(identityParser.parse(id.get(FIELD_ID).asString())).thenReturn(id);
     doThrow(new DeleteException("TESTING")).when(dataRepository).delete(id);
 
     ResponseEntity<ObjectNode> response = testRestTemplate.exchange("/1", HttpMethod.DELETE, null, ObjectNode.class);
 
     assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
     assertNotNull(response.getBody());
-    assertEquals("TESTING", response.getBody().get(FIELD_MESSAGE).asText());
+    assertEquals("TESTING", response.getBody().get(FIELD_MESSAGE).asString());
   }
 
   private ObjectNode objectNode(Map<String, JsonNode> properties)
